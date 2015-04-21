@@ -1,6 +1,7 @@
-export JAVA_HOME=/usr/lib/jvm/java-7-oracle/
+export JAVA_HOME=/usr/lib/jvm/default-java
+export SCALA_HOME=/opt/scala
 
-export HADOOP_PREFIX=/opt/hadoop
+export HADOOP_PREFIX=/srv/hadoop
 export HADOOP_COMMON_HOME=$HADOOP_PREFIX
 export HADOOP_HDFS_HOME=$HADOOP_PREFIX
 export HADOOP_YARN_HOME=$HADOOP_PREFIX
@@ -16,13 +17,13 @@ export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_PREFIX/lib/native
 export HADOOP_OPTS="-Djava.library.path=$HADOOP_PREFIX/lib -Djava.net.preferIPv4Stack=true"
 
 
-export HIVE_HOME=/opt/hive
+export HIVE_HOME=/srv/hive
 
-export SPARK_HOME=/opt/spark
+export SPARK_HOME=/srv/spark
 
-export PIG_HOME=/opt/pig
+export PIG_HOME=/srv/pig
 
-export PATH=$PATH:$PIG_HOME/bin:$SPARK_HOME/bin:$HADOOP_PREFIX/bin:$HADOOP_PREFIX/sbin:$HIVE_HOME/bin
+export PATH=$PATH:$SCALA_HOME/bin:$PIG_HOME/bin:$SPARK_HOME/bin:$HADOOP_PREFIX/bin:$HADOOP_PREFIX/sbin:$HIVE_HOME/bin
 
 alias hfs="hadoop fs"
 alias hls="hfs -ls"

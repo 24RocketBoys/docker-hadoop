@@ -2,31 +2,31 @@
 
 set -x
 
-# append ssh public key to authorized_keys file
+# Agregamos la llave pública a las llaves autorizadas
 echo $AUTHORIZED_SSH_PUBLIC_KEY >> /home/hduser/.ssh/authorized_keys
 
-# format the namenode if it's not already done
-su -l -c 'mkdir -p /home/hduser/hdfs-data/namenode /home/hduser/hdfs-data/datanode && hdfs namenode -format -nonInteractive' hduser
+# Formateamos el namenode
+su -l -c 'hdfs namenode -format -nonInteractive' hduser
 
-# start ssh daemon
+# Iniciamos el servicio de SSH
 service ssh start
 
-# start zookeeper used for HDFS
+# Iniciamos el ZooKeeper
 service zookeeper start
 
-# clear hadoop logs
-rm -fr /opt/hadoop/logs/*
+# Limpiamos los logs de Hadoop
+rm -fr /srv/hadoop/logs/*
 
-# start YARN
+# Levantamos YARN
 su -l -c 'start-yarn.sh' hduser
 
-# start HDFS
+# Levantamos HDFS
 su -l -c 'start-dfs.sh' hduser
 
-
+# Levantamos el JobHistory
 su -l -c '$HADOOP_PREFIX/sbin/mr-jobhistory-daemon.sh start historyserver --config $HADOOP_CONF_DIR' hduser
 
 sleep 1
 
-# tail log directory
-tail -n 1000 -f /opt/hadoop/logs/*.log
+# Mostramos los logs a pantalla
+tail -n 1000 -f /srv/hadoop/logs/*.log

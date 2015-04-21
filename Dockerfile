@@ -1,31 +1,28 @@
-FROM ubuntu:14.10
+## Version 0.1
+FROM nanounanue/docker-base
 MAINTAINER Adolfo De Unánue Tiscareño
+
+VOLUME /home/itam/tmp
+
+ENV REFRESHED_AT 2015-04-21
+ENV DEBIAN-FRONTEND noninteractive
 
 USER root
 WORKDIR /root/
 
-# Instalar add-apt-repository
-RUN apt-get update && apt-get install -y software-properties-common
-
-# Habilitar los repositorios de Oracle
-RUN add-apt-repository -y multiverse && \
-  add-apt-repository -y restricted && \
-  add-apt-repository -y ppa:webupd8team/java && \
-  apt-get update && apt-get upgrade -y
-
-# Instalar Oracle Java7
-RUN echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections && \
-  apt-get install -y oracle-java7-installer oracle-java7-set-default
-
 # Instalar paquetería
-RUN apt-get install -y ssh zookeeperd lzop git rsync curl python-dev python-setuptools libcurl4-openssl-dev 
+RUN apt-get install -y ssh zookeeperd lzop
+
+COPY apache-hive-0.14.0-bin.tar.gz  /home/itam/tmp/
+COPY hadoop-2.6.0.tar.gz /home/itam/tmp/
+COPY pig-0.14.0.tar.gz /home/itam/tmp/
 
 # Descargas
-RUN wget -q 'http://mirror.its.dal.ca/apache/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz'
-RUN wget -c 'http://apache.webxcreen.org/hive/hive-0.14.0/apache-hive-0.14.0-bin.tar.gz'
-RUN wget -c 'http://d3kbcqa49mib13.cloudfront.net/spark-1.2.0-bin-hadoop2.4.tgz'
-RUN wget -c 'http://apache.webxcreen.org/pig/pig-0.14.0/pig-0.14.0.tar.gz'
-
+#RUN wget -P /home/itam/tmp -c 'http://mirror.its.dal.ca/apache/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz'
+#RUN wget -P /home/itam/tmp -c 'http://apache.webxcreen.org/hive/hive-0.14.0/apache-hive-0.14.0-bin.tar.gz'
+#RUN wget -P /home/itam/tmp -c 'http://d3kbcqa49mib13.cloudfront.net/spark-1.2.0-bin-hadoop2.4.tgz'
+#RUN wget -P /home/itam/tmp -c 'http://apache.webxcreen.org/pig/pig-0.14.0/pig-0.14.0.tar.gz'
+#RUN wget -P /home/itam/tmp -c 'http://downloads.typesafe.com/scala/2.11.6/scala-2.11.6.tgz'
 
 # Agregando usuarios y grupos de acceso
 RUN addgroup hadoop && adduser --ingroup hadoop hduser
@@ -40,37 +37,37 @@ RUN su -l -c 'ssh-keygen -t rsa -f /home/hduser/.ssh/id_rsa -P ""' hduser && \
 ADD config/ssh-config /home/hduser/.ssh/config
 RUN chmod 600 /home/hduser/.ssh/config
 
-# COnflicto de puertos
+# Conflicto de puertos entre la máquina local y el docker para el puerto del SSH
 RUN sed -i "/^[^#]*UsePAM/ s/.*/#&/" /etc/ssh/sshd_config
-RUN echo "UsePAM no" >> /etc/ssh/sshd_config
+RUN echo "Port 2122" >> /etc/ssh/ssh_config
 RUN echo "Port 2122" >> /etc/ssh/sshd_config
+RUN echo "UsePAM no" >> /etc/ssh/sshd_config
 
-
-# Arreglando un problema de Ubuntu con SSH en Docker: http://docs.docker.io/en/latest/examples/running_ssh_service/
-RUN sed -ri 's/session[[:blank:]]+required[[:blank:]]+pam_loginuid.so/session optional pam_loginuid.so/g' /etc/pam.d/sshd
 
 # Descomprimiendo y arreglando permisos
-RUN tar xvfz /root/hadoop-2.6.0.tar.gz -C /opt && \
-  ln -s /opt/hadoop-2.6.0 /opt/hadoop && \
-  chown -R hduser:hadoop /opt/hadoop-2.6.0 && \
-  mkdir /opt/hadoop-2.6.0/logs && \
-  chown -R hduser:hadoop /opt/hadoop-2.6.0/logs
+RUN tar xvfz /home/itam/tmp/hadoop-2.6.0.tar.gz -C /srv && \
+  ln -s /srv/hadoop-2.6.0 /srv/hadoop && \
+  chown -R hduser:hadoop /srv/hadoop-2.6.0 && \
+  mkdir /srv/hadoop-2.6.0/logs && \
+  chown -R hduser:hadoop /srv/hadoop-2.6.0/logs
 
-RUN tar xvfz /root/apache-hive-0.14.0-bin.tar.gz -C /opt && \
-  ln -s /opt/apache-hive-0.14.0-bin /opt/hive && \
-  chown -R hduser:hadoop /opt/apache-hive-0.14.0-bin
-  
-RUN tar xvfz /root/spark-1.2.0-bin-hadoop2.4.tgzz -C /opt && \
-  ln -s /opt/spark-1.2.0-bin-hadoop2.4 /opt/spark && \
-  chown -R hduser:hadoop /opt/spark-1.2.0-bin-hadoop2.4
+RUN tar xvfz /home/itam/tmp/apache-hive-0.14.0-bin.tar.gz -C /srv && \
+ ln -s /srv/apache-hive-0.14.0-bin /srv/hive && \
+ chown -R hduser:hadoop /srv/apache-hive-0.14.0-bin
 
-RUN tar xvfz /root/pig-0.14.0.tar.gz -C /opt && \
-  ln -s /opt/pig-0.14.0 /opt/pig && \
-  chown -R hduser:hadoop /opt/pig-0.14.0
-  
+RUN tar xvfz /home/itam/tmp/pig-0.14.0.tar.gz -C /srv && \
+ ln -s /srv/pig-0.14.0 /srv/pig && \
+ chown -R hduser:hadoop /srv/pig-0.14.0
 
 # Ajustando el ambiente de hduser
 ADD config/bashrc /home/hduser/.bashrc
+RUN chown -R hduser:hadoop /home/hduser/.bashrc
+RUN mkdir -p /home/hduser/hdfs-data/namenode /home/hduser/hdfs-data/datanode
+RUN chown -R hduser:hadoop /home/hduser/hdfs-data
+
+# Formateamos el namenode
+RUN su -l -c 'hdfs namenode -format -nonInteractive' hduser
+
 
 # Configurando Hadoop como Pseudodistribuido
 ADD config/core-site.xml /tmp/hadoop-etc/core-site.xml
@@ -78,10 +75,14 @@ ADD config/yarn-site.xml /tmp/hadoop-etc/yarn-site.xml
 ADD config/mapred-site.xml /tmp/hadoop-etc/mapred-site.xml
 ADD config/hdfs-site.xml /tmp/hadoop-etc/hdfs-site.xml
 
-RUN mv /tmp/hadoop-etc/* /opt/hadoop/etc/hadoop/
+RUN mv /tmp/hadoop-etc/* /srv/hadoop/etc/hadoop/
+
+## Arreglar start-dfs.sh
+ADD config/dfs.sed /home/itam/tmp/
+RUN sed --file /home/itam/tmp/dfs.sed  --in-place /srv/hadoop/sbin/start-dfs.sh
 
 # SSH
-EXPOSE 22
+EXPOSE 2122
 
 # QuorumPeerMain (Zookeeper)
 EXPOSE 2181 39534
