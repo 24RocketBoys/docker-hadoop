@@ -10,16 +10,10 @@ USER root
 # Instalar paquetería
 RUN apt-get install -y ssh zookeeperd lzop
 
-COPY apache-hive-0.14.0-bin.tar.gz  /tmp/
-COPY hadoop-2.6.0.tar.gz /tmp/
-COPY pig-0.14.0.tar.gz /tmp/
-
 # Descargas
-#RUN wget -P /home/itam/tmp -c 'http://mirror.its.dal.ca/apache/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz'
-#RUN wget -P /home/itam/tmp -c 'http://apache.webxcreen.org/hive/hive-0.14.0/apache-hive-0.14.0-bin.tar.gz'
-#RUN wget -P /home/itam/tmp -c 'http://d3kbcqa49mib13.cloudfront.net/spark-1.2.0-bin-hadoop2.4.tgz'
-#RUN wget -P /home/itam/tmp -c 'http://apache.webxcreen.org/pig/pig-0.14.0/pig-0.14.0.tar.gz'
-#RUN wget -P /home/itam/tmp -c 'http://downloads.typesafe.com/scala/2.11.6/scala-2.11.6.tgz'
+RUN wget -P /tmp -c 'http://mirror.its.dal.ca/apache/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz'
+RUN wget -P /tmp -c 'http://apache.webxcreen.org/hive/hive-0.14.0/apache-hive-0.14.0-bin.tar.gz'
+RUN wget -P /tmp -c 'http://apache.webxcreen.org/pig/pig-0.14.0/pig-0.14.0.tar.gz'
 
 # Agregando usuarios y grupos de acceso
 RUN addgroup hadoop && adduser --ingroup hadoop hduser
