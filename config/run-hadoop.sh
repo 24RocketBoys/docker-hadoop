@@ -4,9 +4,11 @@ set -x
 
 # Agregamos la llave pública a las llaves autorizadas
 echo $AUTHORIZED_SSH_PUBLIC_KEY >> /home/hduser/.ssh/authorized_keys
+chown -R hduser:hadoop /home/hduser/.ssh/authorized_keys
+#chown -R hduser:hadoop /home/hduser/.ssh/config
 
 # Formateamos el namenode
-su -l -c 'hdfs namenode -format -nonInteractive' hduser
+#su -l -c 'hdfs namenode -format -nonInteractive' hduser
 
 # Iniciamos el servicio de SSH
 service ssh start
