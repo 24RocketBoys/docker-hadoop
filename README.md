@@ -1,7 +1,7 @@
 # docker-hadoop
 Hadoop
 
-
+```{bash}
 docker run -ti --rm \
   -e "AUTHORIZED_SSH_PUBLIC_KEY=$(cat ~/.ssh/id_rsa.pub)" \
   -v /home/nano/tmp/docker-hadoop-data/:/home/hduser/hdfs-data/ \
@@ -12,3 +12,4 @@ docker run -ti --rm \
   -p 8033:8033 -p 8088:8088 -p 8040:8040 -p 8042:8042 \
   -p 13562:13562 -p 47784:47784 -p 10020:10020 -p 19888:19888 \
 hadoop_pseudo /bin/bash
+```
