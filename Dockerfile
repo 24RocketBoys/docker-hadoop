@@ -1,116 +1,85 @@
-## Version 0.1
+## Version 0.2
 FROM nanounanue/docker-base
 MAINTAINER Adolfo De Unánue Tiscareño
 
-ENV REFRESHED_AT 2015-04-21
+ENV REFRESHED_AT 2015-04-28
 ENV DEBIAN-FRONTEND noninteractive
 
 USER root
 
-# Instalar paquetería
-RUN apt-get install -y ssh zookeeperd lzop
+RUN apt-get install -y --no-install-recommends ssh lzop libkrb5-dev libmysqlclient-dev libssl-dev libsasl2-dev  libsasl2-modules-gssapi-mit libsqlite3-dev libtidy-0.99-0 libldap2-dev
 
-# Descargas
-RUN wget -P /tmp -c 'http://mirror.its.dal.ca/apache/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz'
-RUN wget -P /tmp -c 'http://apache.webxcreen.org/hive/hive-0.14.0/apache-hive-0.14.0-bin.tar.gz'
-RUN wget -P /tmp -c 'http://apache.webxcreen.org/pig/pig-0.14.0/pig-0.14.0.tar.gz'
+RUN pip install allpairs pytest pytest-xdist paramiko texttable prettytable sqlparse psutil==0.7.1 pywebhdfs gitpython jenkinsapi
 
-# Agregando usuarios y grupos de acceso
-RUN addgroup hadoop && adduser --ingroup hadoop hduser
-RUN usermod -a -G hadoop zookeeper
 
-# Le ponemos password
-RUN echo 'hduser:hduser' | chpasswd
+## Descargando el paquete de configuración de Cloudera
+RUN wget -P /tmp -c http://archive.cloudera.com/cdh5/one-click-install/trusty/amd64/cdh5-repository_1.0_all.deb
 
-# Setup SSH keys for Hadoop
-RUN su -l -c 'ssh-keygen -t rsa -f /home/hduser/.ssh/id_rsa -P ""' hduser && \
-  cat /home/hduser/.ssh/id_rsa.pub | su -l -c 'tee -a /home/hduser/.ssh/authorized_keys' hduser
-ADD config/ssh-config /home/hduser/.ssh/config
-RUN chmod 600 /home/hduser/.ssh/config
-RUN chown -R hduser:hadoop /home/hduser/.ssh/config
+## Instalando Hadoop de modo Pseudo Distribuido
+RUN dpkg -i /tmp/cdh5-repository_1.0_all.deb \
+&& apt-get update \
+&& apt-get -y install hadoop-conf-pseudo
 
-# Conflicto de puertos entre la máquina local y el docker para el puerto del SSH
+## Instalamos otros componentes del ecosistema
+RUN apt-get -y install hive pig spark-core spark-master spark-worker spark-history-server spark-python flume-ng sqoop hive-webhcat-server hive-hcatalog hive-server2 hbase hbase-thrift hbase-master
+
+## Por último instalamos Oozie e Impala
+RUN apt-get -y install oozie oozie-client impala impala-server impala-state-store impala-catalog impala-shell
+
+## Preparamos el HDFS
+ADD config/run_cloudera_init.sh /tmp/run_cloudera_init.sh
+RUN chmod +x /tmp/run_cloudera_init.sh; sync  \
+&& /tmp/run_cloudera_init.sh
+
+## Instalando HUE
+WORKDIR /opt
+
+RUN git clone https://github.com/cloudera/hue.git
+
+WORKDIR /opt/hue
+
+RUN make apps && rm -Rf /root/.m2
+RUN useradd hue -r && chown hue:hue /opt/hue/desktop && chown hue:hue /opt/hue/desktop/desktop.db
+RUN sed -i 's/secret_key=/secret_key=_S@s+D=h;B,s$C%k#H!dMjPmEsSaJR/g' /opt/hue/desktop/conf/pseudo-distributed.ini  # Crear la llave de HUE
+
+
+
+## Arreglando el SSH
+## Conflicto de puertos entre la máquina local y el docker para el puerto del SSH
 RUN sed -i "/^[^#]*UsePAM/ s/.*/#&/" /etc/ssh/sshd_config
 RUN echo "Port 2122" >> /etc/ssh/ssh_config
 RUN echo "Port 2122" >> /etc/ssh/sshd_config
 RUN echo "UsePAM no" >> /etc/ssh/sshd_config
 
-
-# Descomprimiendo y arreglando permisos
-RUN tar xvfz /tmp/hadoop-2.6.0.tar.gz -C /srv && \
-  ln -s /srv/hadoop-2.6.0 /srv/hadoop && \
-  chown -R hduser:hadoop /srv/hadoop-2.6.0 && \
-  mkdir /srv/hadoop-2.6.0/logs && \
-  chown -R hduser:hadoop /srv/hadoop-2.6.0/logs && \
-  chown -R hduser:hadoop /srv/hadoop
-
-VOLUME /srv/hadoop/logs
-
-RUN tar xvfz /tmp/apache-hive-0.14.0-bin.tar.gz -C /srv && \
- ln -s /srv/apache-hive-0.14.0-bin /srv/hive && \
- chown -R hduser:hadoop /srv/apache-hive-0.14.0-bin && \
- mkdir /srv/apache-hive-0.14.0-bin/logs && \
- chown -R hduser:hadoop /srv/apache-hive-0.14.0-bin/logs && \
- chown -R hduser:hadoop /srv/hive
-
-RUN tar xvfz /tmp/pig-0.14.0.tar.gz -C /srv && \
- ln -s /srv/pig-0.14.0 /srv/pig && \
- chown -R hduser:hadoop /srv/pig-0.14.0 && \
- mkdir /srv/pig-0.14.0/logs && \
- chown -R hduser:hadoop /srv/pig-0.14.0/logs && \
- chown -R hduser:hadoop /srv/pig
-
-# Ajustando el ambiente de hduser
-ADD config/bashrc /home/hduser/.bashrc
-RUN chown -R hduser:hadoop /home/hduser/.bashrc
-RUN mkdir -p /home/hduser/hdfs-data/namenode
-RUN mkdir -p /home/hduser/hdfs-data/datanode
-RUN chown -R hduser:hadoop /home/hduser/hdfs-data
-
-VOLUME /home/hduser/hdfs-data
-
-# Formateamos el namenode
-RUN su -l -c 'hdfs namenode -format -nonInteractive' hduser
-
-
-# Configurando Hadoop como Pseudodistribuido
-ADD config/core-site.xml /tmp/hadoop-etc/core-site.xml
-ADD config/yarn-site.xml /tmp/hadoop-etc/yarn-site.xml
-ADD config/mapred-site.xml /tmp/hadoop-etc/mapred-site.xml
-ADD config/hdfs-site.xml /tmp/hadoop-etc/hdfs-site.xml
-
-RUN mv /tmp/hadoop-etc/* /srv/hadoop/etc/hadoop/
-
-## Arreglar start-dfs.sh
-ADD config/dfs.sed /tmp/
-RUN sed --file /tmp/dfs.sed  --in-place /srv/hadoop/sbin/start-dfs.sh
-
-# SSH
+## SSH
 EXPOSE 2122
 
-# QuorumPeerMain (Zookeeper)
-EXPOSE 2181 39534
-
-# NameNode (HDFS)
+## NameNode (HDFS)
 EXPOSE 9000 50070
 
-# DataNode (HDFS)
+## DataNode (HDFS)
 EXPOSE 50010 50020 50075
 
-# SecondaryNameNode (HDFS)
+## SecondaryNameNode (HDFS)
 EXPOSE 50090
 
-# ResourceManager (YARN)
+## ResourceManager (YARN)
 EXPOSE 8030 8031 8032 8033 8088
 
-# NodeManager (YARN)
+## Hadoop User Experience (HUE)
+EXPOSE 8000 9999
+
+## NodeManager (YARN)
 EXPOSE 8040 8042 13562 47784
 
-# JobHistoryServer
+## JobHistoryServer
 EXPOSE 10020 19888
 
-# Create start script
-ADD config/run-hadoop.sh /root/run-hadoop.sh
-RUN chmod +x /root/run-hadoop.sh
+WORKDIR /home/itam
 
-CMD ["/root/run-hadoop.sh"]
+
+
+## Inicializar los servicios
+ADD config/run_cloudera_hadoop.sh /usr/bin/run_cloudera_hadoop.sh
+RUN chmod +x /usr/bin/run_cloudera_hadoop.sh
+CMD ["run_cloudera_hadoop.sh"]
