@@ -1,13 +1,13 @@
-## Version 0.2
+## Version 0.3
 FROM nanounanue/docker-base
 MAINTAINER Adolfo De Unánue Tiscareño
 
-ENV REFRESHED_AT 2015-04-28
+ENV REFRESHED_AT 2015-05-01
 ENV DEBIAN-FRONTEND noninteractive
 
 USER root
 
-RUN apt-get install -y --no-install-recommends ssh lzop libkrb5-dev libmysqlclient-dev libssl-dev libsasl2-dev  libsasl2-modules-gssapi-mit libsqlite3-dev libtidy-0.99-0 libldap2-dev
+RUN apt-get install -y --no-install-recommends ssh lzop libkrb5-dev libmysqlclient-dev libssl-dev libsasl2-dev  libsasl2-modules-gssapi-mit libsqlite3-dev libtidy-0.99-0 libldap2-dev mysql-server libmysql-java
 
 RUN pip install allpairs pytest pytest-xdist paramiko texttable prettytable sqlparse psutil==0.7.1 pywebhdfs gitpython jenkinsapi
 
@@ -21,28 +21,26 @@ RUN dpkg -i /tmp/cdh5-repository_1.0_all.deb \
 && apt-get -y install hadoop-conf-pseudo
 
 ## Instalamos otros componentes del ecosistema
-RUN apt-get -y install hive pig spark-core spark-master spark-worker spark-history-server spark-python flume-ng sqoop hive-webhcat-server hive-hcatalog hive-server2 hbase hbase-thrift hbase-master
+RUN apt-get -y install hive pig pig-udf-datafu spark-core spark-master spark-worker spark-history-server spark-python flume-ng sqoop hive-webhcat-server hive-hcatalog hive-server2 hive-metastore
 
-## Por último instalamos Oozie e Impala
-RUN apt-get -y install oozie oozie-client impala impala-server impala-state-store impala-catalog impala-shell
+## Por último instalamos Impala
+RUN apt-get -y install impala impala-server impala-state-store impala-catalog impala-shell
+
 
 ## Preparamos el HDFS
+ADD config/hive-metastore-users.sql /tmp/hive-metastore-users.sql
 ADD config/run_cloudera_init.sh /tmp/run_cloudera_init.sh
 RUN chmod +x /tmp/run_cloudera_init.sh; sync  \
 && /tmp/run_cloudera_init.sh
 
-## Instalando HUE
+## Instalamos Luigi como workflow manager
 WORKDIR /opt
 
-RUN git clone https://github.com/cloudera/hue.git
+RUN git clone https://github.com/spotify/luigi.git
 
-WORKDIR /opt/hue
+WORKDIR /opt/luigi
 
-RUN make apps && rm -Rf /root/.m2
-RUN useradd hue -r && chown hue:hue /opt/hue/desktop && chown hue:hue /opt/hue/desktop/desktop.db
-RUN sed -i 's/secret_key=/secret_key=_S@s+D=h;B,s$C%k#H!dMjPmEsSaJR/g' /opt/hue/desktop/conf/pseudo-distributed.ini  # Crear la llave de HUE
-
-
+RUN python setup.py install
 
 ## Arreglando el SSH
 ## Conflicto de puertos entre la máquina local y el docker para el puerto del SSH
@@ -50,6 +48,18 @@ RUN sed -i "/^[^#]*UsePAM/ s/.*/#&/" /etc/ssh/sshd_config
 RUN echo "Port 2122" >> /etc/ssh/ssh_config
 RUN echo "Port 2122" >> /etc/ssh/sshd_config
 RUN echo "UsePAM no" >> /etc/ssh/sshd_config
+
+## Arreglamos seguridad en Hadoop
+## NOTA: Esto obviamente no es lo mejor y hay que configurar el hdfs-site.xml
+RUN groupadd supergroup
+RUN usermod -a -G supergroup itam
+
+## Copiamos el JAR del conector a Hive
+RUN ln -s /usr/share/java/mysql-connector-java-5.1.31.jar /usr/lib/hive/lib/
+
+## Arreglamos el hive-site.xml
+RUN rm /etc/hive/conf/hive-site.xml
+ADD config/hive-site.xml /etc/hive/conf/hive-site.xml
 
 ## SSH
 EXPOSE 2122

@@ -12,7 +12,7 @@ echo "Iniciar el HDFS"
 bash -c 'for x in `cd /etc/init.d ; ls hadoop-hdfs-*` ; do sudo service $x start ; done'
 
 #Crear la estructura de directorios necesarios para los procesos de Hadoop  (en el HDFS)
-echo "Step 3 - Create the directories needed for Hadoop processes"
+echo "Crear la estructura de directorios necesarios para los procesos de Hadoop  (en el HDFS)"
 /usr/lib/hadoop/libexec/init-hdfs.sh
 
 sudo -u hive hdfs dfs -mkdir       /user/hive/warehouse
@@ -21,7 +21,7 @@ sudo -u hive hdfs dfs -chmod g+w   /user/hive/warehouse
 # sudo -u hdfs hdfs dfs -chown hbase /hbase
 
 #Verificar la estructura de archivos recién creada
-echo "Step 4: Verify the HDFS File Structure"
+echo "Verificar la estructura de archivos del HDFS"
 sudo -u hdfs hadoop fs -ls -R /
 
 #Inicialiazar YARN
@@ -30,9 +30,12 @@ service hadoop-yarn-resourcemanager start
 service hadoop-yarn-nodemanager start
 service hadoop-mapreduce-historyserver start
 
+# Inicializar MySQL
+echo "Iniciar MySQL"
+service mysql start
 
-echo "Configurar Oozie"
-update-alternatives --set oozie-tomcat-conf /etc/oozie/tomcat-conf.http
-oozie-setup sharelib create -fs hdfs://localhost -locallib /usr/lib/oozie/oozie-sharelib-yarn
-sudo -u hdfs hadoop fs -chown oozie:oozie /user/oozie
-oozie-setup db create -run
+# Crear el metastore en mysql
+echo "Crear la base de datos del Hive-metastore"
+mysql -u root -e "create database metastore;" --verbose
+mysql -u root -e "use metastore; source /usr/lib/hive/scripts/metastore/upgrade/mysql/hive-schema-1.1.0.mysql.sql;" --verbose
+mysql -u root metastore < /tmp/hive-metastore-users.sql
