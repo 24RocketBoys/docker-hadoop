@@ -39,3 +39,8 @@ echo "Crear la base de datos del Hive-metastore"
 mysql -u root -e "create database metastore;" --verbose
 mysql -u root -e "use metastore; source /usr/lib/hive/scripts/metastore/upgrade/mysql/hive-schema-1.1.0.mysql.sql;" --verbose
 mysql -u root metastore < /tmp/hive-metastore-users.sql
+
+
+# Permitir que Impala vea el Hive Metastore
+echo "Arreglando que Impala vea el Hive Metastore"
+ln -s /etc/hive/conf/hive-site.xml /etc/impala/conf/hive-site.xml

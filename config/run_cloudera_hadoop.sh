@@ -14,8 +14,10 @@ service hadoop-yarn-resourcemanager start
 service hadoop-yarn-nodemanager start
 service hadoop-mapreduce-historyserver start
 
-echo "Inicializando HiveMetastore"
+echo "Inicializando HiveMetastore y sus componentes"
 service hive-metastore start
+service hive-server2 start
+service hive-webhcat-server start
 
 echo "Inicializando Spark"
 service spark-master start
@@ -29,9 +31,6 @@ service spark-worker start
 
 echo "Inicializando Impala"
 bash -c 'for x in `cd /etc/init.d ; ls impala-*` ; do sudo service $x start ; done'
-
-
-
 
 echo "Presiona Ctrl+P y Ctrl+Q para mandar este proceso al background."
 echo 'Usa "docker exec -it CONTAINER_ID /bin/zsh" para crear una nueva instancia\'
